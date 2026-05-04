@@ -1,38 +1,44 @@
 const express = require("express");
 const { body } = require("express-validator");
 const { validate } = require("../middleware/validate.middleware");
-const authController = require("../controllers/auth.controller");
+const adminController = require("../controllers/adminController");
+const { protect } = require("../middleware/auth.middleware");
 
 const router = express.Router();
 
-// POST /api/auth/register
-router.post(
-  "/register",
+// All admin routes require authentication
+router.use(protect);
+
+// GET /api/admin/me
+// Get logged-in admin's profile
+router.get("/me", adminController.getProfile);
+
+// PUT /api/admin/me
+// Update admin profile (name, organization info)
+router.put(
+  "/me",
   [
-    body("name").notEmpty().withMessage("Name is required"),
-    body("email").isEmail().withMessage("Valid email required"),
-    body("password").isLength({ min: 8 }).withMessage("Password must be at least 8 characters"),
-    body("organization.name").notEmpty().withMessage("Organization name is required"),
+    body("name").optional().notEmpty().withMessage("Name cannot be empty"),
+    body("organization.name").optional().notEmpty().withMessage("Organization name cannot be empty"),
   ],
   validate,
-  authController.register
+  adminController.updateProfile
 );
 
-// POST /api/auth/login
-router.post(
-  "/login",
+// PUT /api/admin/me/password
+// Change password
+router.put(
+  "/me/password",
   [
-    body("email").isEmail(),
-    body("password").notEmpty(),
+    body("currentPassword").notEmpty().withMessage("Current password required"),
+    body("newPassword").isLength({ min: 8 }).withMessage("New password must be at least 8 characters"),
   ],
   validate,
-  authController.login
+  adminController.changePassword
 );
 
-// POST /api/auth/refresh  — get new access token using refresh token
-router.post("/refresh", authController.refresh);
-
-// POST /api/auth/logout
-router.post("/logout", authController.logout);
+// DELETE /api/admin/me
+// Deactivate account (soft delete)
+router.delete("/me", adminController.deactivateAccount);
 
 module.exports = router;
