@@ -4,11 +4,11 @@ const helmet = require("helmet");
 const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
 
-const authRoutes = require("./routes/auth.routes");
-const adminRoutes = require("./routes/admin.routes");
-const serviceRoutes = require("./routes/service.routes");
-const queueRoutes = require("./routes/queue.routes");
-const analyticsRoutes = require("./routes/analytics.routes");
+const authRoutes = require("./routes/auth");
+const adminRoutes = require("./routes/admin");
+const serviceRoutes = require("./routes/service");
+const queueRoutes = require("./routes/queue");
+const analyticsRoutes = require("./routes/analytics");
 
 const { errorHandler } = require("./middleware/error.middleware");
 
