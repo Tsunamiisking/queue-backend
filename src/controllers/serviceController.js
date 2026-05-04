@@ -1,6 +1,6 @@
 const { nanoid } = require("nanoid");
-const Service = require("../src/models/service.model");
-const QueueEntry = require("../src/models/queueEntry.model");
+const Service = require("../models/Service");
+const QueueEntry = require("../models/QueueEntry");
 
 // GET /api/services
 exports.listServices = async (req, res, next) => {

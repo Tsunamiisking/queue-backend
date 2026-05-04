@@ -1,5 +1,5 @@
-const Service = require("../src/models/service.model");
-const QueueEntry = require("../src/models/queueEntry.model");
+const Service = require("../models/Service");
+const QueueEntry = require("../models/QueueEntry");
 const { getIO } = require("../socket");
 const { generateTicketNumber } = require("../utils/ticket.util");
 const { computeWaitRange } = require("../services/waitRange.service");
@@ -193,6 +193,38 @@ exports.markComplete = async (req, res, next) => {
 
     getIO().to(`service:${entry.service}`).emit("queue:completed", { entryId: entry._id });
     res.json({ entry });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// PATCH /api/queue/entry/:entryId/skip  (admin)
+exports.skipEntry = async (req, res, next) => {
+  try {
+    const entry = await QueueEntry.findByIdAndUpdate(
+      req.params.entryId,
+      { status: "skipped" },
+      { new: true }
+    );
+    
+    if (!entry) return res.status(404).json({ error: "Entry not found" });
+
+    getIO().to(`service:${entry.service}`).emit("queue:skipped", { entryId: entry._id });
+    res.json({ message: "Entry marked as skipped", entry });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// DELETE /api/queue/entry/:entryId  (admin)
+exports.removeEntry = async (req, res, next) => {
+  try {
+    const entry = await QueueEntry.findByIdAndDelete(req.params.entryId);
+    
+    if (!entry) return res.status(404).json({ error: "Entry not found" });
+
+    getIO().to(`service:${entry.service}`).emit("queue:removed", { entryId: entry._id });
+    res.json({ message: "Entry removed from queue" });
   } catch (err) {
     next(err);
   }

@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const Admin = require("../src/models/admin.model");
+const Admin = require("../models/Admin");
 
 const signAccess = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "15m" });
