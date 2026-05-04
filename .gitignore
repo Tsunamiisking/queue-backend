@@ -1,3 +1,27 @@
+
+# .gitignore for Queue Management System Backend
+
+# Ignore node modules and environment files
 node_modules
 .env
+.env.local
+
+
+# Ignore logs and temporary files
+logs
+*.log
+tmp
+*.tmp
+
+# Ignore build and coverage directories
+dist
+coverage
+
+
+# Ignore IDE and OS files
+.vscode
+.DS_Store
+
+# Ignore package lock and markdown files
 package-lock.json
+*.md
