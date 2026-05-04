@@ -1,4 +1,4 @@
-const Admin = require("../models/admin.model");
+const Admin = require("../src/models/admin.model");
 
 // GET /api/admin/me
 exports.getProfile = async (req, res) => {

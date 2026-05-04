@@ -1,5 +1,5 @@
-const Service = require("../models/service.model");
-const QueueEntry = require("../models/queueEntry.model");
+const Service = require("../src/models/service.model");
+const QueueEntry = require("../src/models/queueEntry.model");
 const { getIO } = require("../socket");
 const { generateTicketNumber } = require("../utils/ticket.util");
 const { computeWaitRange } = require("../services/waitRange.service");
