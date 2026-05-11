@@ -62,7 +62,7 @@ exports.getTicketStatus = async (req, res, next) => {
   try {
     const entry = await QueueEntry.findOne({ ticketNumber: req.params.ticketNumber }).populate(
       "service",
-      "name estimatedWaitTime isOpen"
+      "name estimatedWaitTime isOpen sessionHistory"
     );
 
     if (!entry) return res.status(404).json({ error: "Ticket not found" });
@@ -74,13 +74,17 @@ exports.getTicketStatus = async (req, res, next) => {
       position: { $lt: entry.position },
     });
 
+    // Compute LIVE estimate based on actual current position (not join-time position)
+    const liveWaitRange = computeWaitRange(entry.service, ahead + 1);
+
     res.json({
       ticketNumber: entry.ticketNumber,
       name: entry.name,
       status: entry.status,
       position: entry.position,
       peopleAhead: ahead,
-      estimatedWait: entry.estimatedWait,
+      estimatedWait: liveWaitRange,              // Live, recomputed
+      estimatedWaitAtJoin: entry.estimatedWait,  // Original snapshot for analytics
       service: entry.service,
       joinedAt: entry.joinedAt,
     });
@@ -100,8 +104,12 @@ exports.leaveQueue = async (req, res, next) => {
 
     if (!entry) return res.status(404).json({ error: "Active ticket not found" });
 
+    const io = getIO();
     // Notify admin dashboard
-    getIO().to(`service:${entry.service}`).emit("queue:entry_left", { entryId: entry._id });
+    io.to(`service:${entry.service}`).emit("queue:entry_left", { entryId: entry._id });
+    
+    // Update estimates for remaining waiting users
+    await broadcastUpdatedEstimates(entry.service, io);
 
     res.json({ message: "You have left the queue" });
   } catch (err) {
@@ -158,6 +166,9 @@ exports.callNext = async (req, res, next) => {
       message: "It's your turn! Please proceed.",
       ticketNumber: next_entry.ticketNumber,
     });
+    
+    // Update estimates for remaining waiting users
+    await broadcastUpdatedEstimates(req.params.serviceId, io);
 
     res.json({ message: "Next person called", entry: next_entry });
   } catch (err) {
@@ -205,7 +216,12 @@ exports.markComplete = async (req, res, next) => {
       });
     }
 
-    getIO().to(`service:${entry.service}`).emit("queue:completed", { entryId: entry._id });
+    const io = getIO();
+    io.to(`service:${entry.service}`).emit("queue:completed", { entryId: entry._id });
+    
+    // Update estimates for remaining waiting users
+    await broadcastUpdatedEstimates(entry.service, io);
+    
     res.json({ entry });
   } catch (err) {
     next(err);
@@ -223,7 +239,12 @@ exports.skipEntry = async (req, res, next) => {
     
     if (!entry) return res.status(404).json({ error: "Entry not found" });
 
-    getIO().to(`service:${entry.service}`).emit("queue:skipped", { entryId: entry._id });
+    const io = getIO();
+    io.to(`service:${entry.service}`).emit("queue:skipped", { entryId: entry._id });
+    
+    // Update estimates for remaining waiting users
+    await broadcastUpdatedEstimates(entry.service, io);
+    
     res.json({ message: "Entry marked as skipped", entry });
   } catch (err) {
     next(err);
@@ -237,10 +258,54 @@ exports.removeEntry = async (req, res, next) => {
     
     if (!entry) return res.status(404).json({ error: "Entry not found" });
 
-    getIO().to(`service:${entry.service}`).emit("queue:removed", { entryId: entry._id });
+    const io = getIO();
+    io.to(`service:${entry.service}`).emit("queue:removed", { entryId: entry._id });
+    
+    // Update estimates for remaining waiting users
+    await broadcastUpdatedEstimates(entry.service, io);
+    
     res.json({ message: "Entry removed from queue" });
   } catch (err) {
     next(err);
+  }
+};
+
+/**
+ * Broadcast updated wait time estimates to all waiting users
+ * Called after queue changes (complete, skip, leave, remove)
+ * Only emits if the estimate actually changed (avoids noise)
+ * 
+ * @param {String} serviceId - Service ID
+ * @param {Server} io - Socket.IO instance
+ */
+const broadcastUpdatedEstimates = async (serviceId, io) => {
+  try {
+    const service = await Service.findById(serviceId);
+    if (!service) return;
+    
+    // Get all waiting entries in order
+    const waitingEntries = await QueueEntry.find({
+      service: serviceId,
+      status: "waiting",
+    }).sort({ position: 1 });
+
+    // For each waiting person, compute fresh estimate based on effective position
+    waitingEntries.forEach((entry, index) => {
+      const effectivePosition = index + 1; // 1-indexed position
+      const liveRange = computeWaitRange(service, effectivePosition);
+      
+      // Only emit if estimate actually changed (avoid unnecessary updates)
+      const oldRange = entry.estimatedWait;
+      if (!oldRange || liveRange.min !== oldRange.min || liveRange.max !== oldRange.max) {
+        io.to(`ticket:${entry.ticketNumber}`).emit("queue:estimate_updated", {
+          ticketNumber: entry.ticketNumber,
+          peopleAhead: index,
+          estimatedWait: liveRange,
+        });
+      }
+    });
+  } catch (err) {
+    console.error("Error broadcasting estimate updates:", err);
   }
 };
 
