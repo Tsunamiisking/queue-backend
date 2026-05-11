@@ -11,7 +11,7 @@ exports.validate = (req, res, next) => {
     return res.status(400).json({
       error: "Validation failed",
       details: errors.array().map((err) => ({
-        field: err.param,
+        field: err.path || err.param, // path is newer, param is deprecated
         message: err.msg,
         value: err.value,
       })),
