@@ -31,6 +31,7 @@ const initSocket = (server) => {
         console.log(`📍 Socket ${socket.id} joined service:${serviceId}`);
       } catch (err) {
         socket.emit("error", { message: "Invalid authentication" });
+        return; // Important: prevent further execution after error
       }
     });
 
