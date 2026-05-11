@@ -1,10 +1,14 @@
+const { nanoid } = require("nanoid");
+
 /**
  * Generate a human-readable ticket number for queue entries
- * Format: {PREFIX}-{NUMBER}
- * Example: "A-042", "B-123"
+ * Format: {PREFIX}-{UNIQUE_ID}
+ * Example: "A-xK9p", "B-mN2q"
+ * 
+ * Uses nanoid for guaranteed uniqueness across all services
  * 
  * @param {String} serviceId - MongoDB ObjectId of the service
- * @param {Number} position - Position in queue
+ * @param {Number} position - Position in queue (unused, kept for backwards compatibility)
  * @returns {String} Ticket number
  */
 exports.generateTicketNumber = (serviceId, position) => {
@@ -14,10 +18,10 @@ exports.generateTicketNumber = (serviceId, position) => {
   // Convert hash to letter (A-Z)
   const prefix = String.fromCharCode(65 + (parseInt(serviceHash, 16) % 26));
   
-  // Pad position number with zeros (e.g., 001, 042, 123)
-  const number = position.toString().padStart(3, "0");
+  // Use nanoid for guaranteed uniqueness (4 chars is ~3 million possible combinations)
+  const uniqueId = nanoid(4);
   
-  return `${prefix}-${number}`;
+  return `${prefix}-${uniqueId}`;
 };
 
 /**
