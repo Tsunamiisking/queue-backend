@@ -112,6 +112,13 @@ exports.leaveQueue = async (req, res, next) => {
 // GET /api/queue/:serviceId  (admin)
 exports.getQueue = async (req, res, next) => {
   try {
+    // Verify service ownership
+    const service = await Service.findOne({ 
+      _id: req.params.serviceId, 
+      admin: req.admin._id 
+    });
+    if (!service) return res.status(403).json({ error: "Not authorized" });
+
     const { status = "waiting" } = req.query;
 
     const entries = await QueueEntry.find({
@@ -128,6 +135,13 @@ exports.getQueue = async (req, res, next) => {
 // PATCH /api/queue/:serviceId/call-next  (admin)
 exports.callNext = async (req, res, next) => {
   try {
+    // Verify service ownership
+    const service = await Service.findOne({ 
+      _id: req.params.serviceId, 
+      admin: req.admin._id 
+    });
+    if (!service) return res.status(403).json({ error: "Not authorized" });
+
     const next_entry = await QueueEntry.findOneAndUpdate(
       { service: req.params.serviceId, status: "waiting" },
       { status: "called", calledAt: new Date() },
@@ -230,32 +244,3 @@ exports.removeEntry = async (req, res, next) => {
   }
 };
 
-// PATCH /api/queue/entry/:entryId/skip  (admin)
-exports.skipEntry = async (req, res, next) => {
-  try {
-    const entry = await QueueEntry.findByIdAndUpdate(
-      req.params.entryId,
-      { status: "skipped" },
-      { new: true }
-    );
-    if (!entry) return res.status(404).json({ error: "Entry not found" });
-
-    getIO().to(`service:${entry.service}`).emit("queue:skipped", { entryId: entry._id });
-    res.json({ entry });
-  } catch (err) {
-    next(err);
-  }
-};
-
-// DELETE /api/queue/entry/:entryId  (admin)
-exports.removeEntry = async (req, res, next) => {
-  try {
-    const entry = await QueueEntry.findByIdAndDelete(req.params.entryId);
-    if (!entry) return res.status(404).json({ error: "Entry not found" });
-
-    getIO().to(`service:${entry.service}`).emit("queue:removed", { entryId: entry._id });
-    res.json({ message: "Entry removed" });
-  } catch (err) {
-    next(err);
-  }
-};
