@@ -33,14 +33,7 @@ router.delete("/leave/:ticketNumber", queueController.leaveQueue);
 // ─── Admin routes (managing the live queue) ───────────────────────────────────
 router.use(protect);
 
-// GET /api/queue/:serviceId
-// Admin views all entries in a service queue (filterable by status)
-router.get("/:serviceId", queueController.getQueue);
-
-// PATCH /api/queue/:serviceId/call-next
-// Admin calls the next person in line → status: waiting → called
-router.patch("/:serviceId/call-next", queueController.callNext);
-
+// IMPORTANT: Put /entry/:entryId routes BEFORE /:serviceId to avoid route conflicts
 // PATCH /api/queue/entry/:entryId/serve
 // Admin marks someone as currently being served → status: called → serving
 router.patch("/entry/:entryId/serve", queueController.markServing);
@@ -56,5 +49,13 @@ router.patch("/entry/:entryId/skip", queueController.skipEntry);
 // DELETE /api/queue/entry/:entryId
 // Admin removes an entry manually
 router.delete("/entry/:entryId", queueController.removeEntry);
+
+// GET /api/queue/:serviceId
+// Admin views all entries in a service queue (filterable by status)
+router.get("/:serviceId", queueController.getQueue);
+
+// PATCH /api/queue/:serviceId/call-next
+// Admin calls the next person in line → status: waiting → called
+router.patch("/:serviceId/call-next", queueController.callNext);
 
 module.exports = router;
